@@ -4,6 +4,21 @@ main.py
 This is the main script for the `ppa` project. It provides the core functionality for managing and automating tasks.
 """
 
+import concurrent.futures
+import queue
+import json
+import subprocess
+
+class Task:
+    def __init__(self, priority, task_id, task_name, task_command):
+        self.priority = priority
+        self.task_id = task_id
+        self.task_name = task_name
+        self.task_command = task_command
+
+    def __lt__(self, other):
+        return self.priority < other.priority
+
 def main():
     """
     The main function of the `ppa` project.
@@ -55,11 +70,9 @@ def start_task_management():
 
     This function begins the execution of tasks and workflows defined in the project.
     """
-    # Execute tasks
-    execute_tasks()
-
-    # Monitor task progress
-    monitor_progress()
+    # Execute tasks using TaskManager
+    task_manager = TaskManager()
+    task_manager.execute_tasks()
 
 def load_configurations():
     """
@@ -104,57 +117,6 @@ def monitor_progress():
     This function tracks the progress of tasks and provides updates on their status.
     """
     # Track task progress
-    track_progress()
-
-def read_config_file():
-    """
-    Read the config file for the `ppa` project.
-
-    This function reads the settings and parameters from the config file.
-    """
-    # Read config file
-    with open('config.json', 'r') as config_file:
-        config = json.load(config_file)
-    return config
-
-def apply_settings():
-    """
-    Apply settings to the `ppa` project.
-
-    This function applies the loaded settings and parameters to the project.
-    """
-    # Apply settings
-    settings = load_configurations()
-    for key, value in settings.items():
-        apply_setting(key, value)
-
-def pip_install_packages():
-    """
-    Install required packages using pip.
-
-    This function installs the necessary third-party libraries and packages for the project using pip.
-    """
-    # Install packages
-    subprocess.run(['pip', 'install', '-r', 'requirements.txt'])
-
-def run_tasks():
-    """
-    Run tasks defined in the `ppa` project.
-
-    This function executes the tasks and workflows defined in the project.
-    """
-    # Execute tasks
-    tasks = load_tasks()
-    for task in tasks:
-        execute_task(task)
-
-def track_progress():
-    """
-    Track the progress of tasks in the `ppa` project.
-
-    This function monitors the progress of tasks and provides updates on their status.
-    """
-    # Monitor task progress
     tasks = load_tasks()
     for task in tasks:
         monitor_task(task)
@@ -167,7 +129,16 @@ def load_tasks():
     """
     # Load tasks from tasks file
     with open('tasks.json', 'r') as tasks_file:
-        tasks = json.load(tasks_file)
+        tasks_data = json.load(tasks_file)
+    tasks = []
+    for task_data in tasks_data:
+        task = Task(
+            priority=task_data['priority'],
+            task_id=task_data['id'],
+            task_name=task_data['name'],
+            task_command=task_data['command']
+        )
+        tasks.append(task)
     return tasks
 
 def execute_task(task):
@@ -177,13 +148,10 @@ def execute_task(task):
     This function runs a single task defined in the project.
     
     Parameters:
-    task (dict): A dictionary containing the task details.
+    task (Task): A Task object containing the task details.
     """
     # Execute the task
-    task_id = task['id']
-    task_name = task['name']
-    task_command = task['command']
-    subprocess.run(task_command, shell=True)
+    subprocess.run(task.task_command, shell=True)
 
 def monitor_task(task):
     """
@@ -192,13 +160,11 @@ def monitor_task(task):
     This function tracks the progress of a single task and provides updates on its status.
     
     Parameters:
-    task (dict): A dictionary containing the task details.
+    task (Task): A Task object containing the task details.
     """
     # Monitor the task
-    task_id = task['id']
-    task_name = task['name']
-    task_status = get_task_status(task_id)
-    print(f"Task {task_name} (ID: {task_id}) is {task_status}")
+    task_status = get_task_status(task.task_id)
+    print(f"Task {task.task_name} (ID: {task.task_id}) is {task_status}")
 
 def get_task_status(task_id):
     """
@@ -215,6 +181,22 @@ def get_task_status(task_id):
     # Retrieve task status
     status = "in progress"  # Placeholder status
     return status
+
+class TaskManager:
+    def __init__(self):
+        self.task_queue = queue.PriorityQueue()
+        self.load_tasks_into_queue()
+
+    def load_tasks_into_queue(self):
+        tasks = load_tasks()
+        for task in tasks:
+            self.task_queue.put(task)
+
+    def execute_tasks(self):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            while not self.task_queue.empty():
+                task = self.task_queue.get()
+                executor.submit(execute_task, task)
 
 if __name__ == "__main__":
     main()
