@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Initial project setup
 - Basic project structure
 - Documentation files
+- Task prioritization and parallel execution using `concurrent.futures` and `queue.PriorityQueue`
 
 ### Changed
 - N/A
